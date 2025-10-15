@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'about.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.2
+## Created by: Qt User Interface Compiler version 6.10.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -48,7 +48,7 @@ class Ui_DialogAbout(object):
 "li.checked::marker { content: \"\\2612\"; }\n"
 "</style></head><body style=\" font-family:'Yu Gothic UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u30bd\u30d5\u30c8\u30a6\u30a7\u30a2\u540d\uff1aAI Painter</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u6982\u8981\uff1aDiffuser\u30e2\u30c7\u30eb\u306b\u3088\u308b\u753b\u50cf\u751f\u6210\u3092\u4f7f\u7528\u3057\u305f\u304a\u7d75\u63cf\u304d"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u6982\u8981\uff1aDiffusion\u30e2\u30c7\u30eb\u306b\u3088\u308b\u753b\u50cf\u751f\u6210\u3092\u4f7f\u7528\u3057\u305f\u304a\u7d75\u63cf\u304d"
                         "\u30c4\u30fc\u30eb\u3067\u3059\u3002</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u30d0\u30fc\u30b8\u30e7\u30f3: 0.0.1</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u4f5c\u6210\u8005\u30fb\u8457\u4f5c\u8005: Tanaka Takashi</span></p>\n"

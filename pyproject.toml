@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "AIPainter"
 version = "0.0.1"
-description = "Diffuserモデルを使用したお絵かきツールです。"
+description = "Diffusionモデルを使用したお絵かきツールです。"
 requires-python = ">=3.12"
 authors = [{ name = "Tanaka Takashi" }]
 license = { text = "GPLv3" }
