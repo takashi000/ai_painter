@@ -1049,29 +1049,9 @@
      <height>33</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menusave">
-    <property name="title">
-     <string>save</string>
-    </property>
-   </widget>
-   <widget class="QMenu" name="menuopen">
-    <property name="title">
-     <string>open</string>
-    </property>
-   </widget>
-   <widget class="QMenu" name="menuclear">
-    <property name="title">
-     <string>clear</string>
-    </property>
-   </widget>
    <widget class="QMenu" name="menugenerate">
     <property name="title">
      <string>generate</string>
-    </property>
-   </widget>
-   <widget class="QMenu" name="menuload">
-    <property name="title">
-     <string>load</string>
     </property>
    </widget>
    <widget class="QMenu" name="menuoptions">
@@ -1084,11 +1064,19 @@
      <string>help</string>
     </property>
    </widget>
-   <addaction name="menusave"/>
-   <addaction name="menuopen"/>
-   <addaction name="menuclear"/>
+   <widget class="QMenu" name="menuedit">
+    <property name="title">
+     <string>edit</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menufile">
+    <property name="title">
+     <string>file</string>
+    </property>
+   </widget>
+   <addaction name="menufile"/>
+   <addaction name="menuedit"/>
    <addaction name="menugenerate"/>
-   <addaction name="menuload"/>
    <addaction name="menuoptions"/>
    <addaction name="menuhelp"/>
   </widget>

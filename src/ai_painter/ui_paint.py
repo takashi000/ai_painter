@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'paint.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.9.2
+## Created by: Qt User Interface Compiler version 6.10.0
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -314,30 +314,24 @@ class Ui_MainWindow(object):
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
         self.menubar.setGeometry(QRect(0, 0, 1092, 33))
-        self.menusave = QMenu(self.menubar)
-        self.menusave.setObjectName(u"menusave")
-        self.menuopen = QMenu(self.menubar)
-        self.menuopen.setObjectName(u"menuopen")
-        self.menuclear = QMenu(self.menubar)
-        self.menuclear.setObjectName(u"menuclear")
         self.menugenerate = QMenu(self.menubar)
         self.menugenerate.setObjectName(u"menugenerate")
-        self.menuload = QMenu(self.menubar)
-        self.menuload.setObjectName(u"menuload")
         self.menuoptions = QMenu(self.menubar)
         self.menuoptions.setObjectName(u"menuoptions")
         self.menuhelp = QMenu(self.menubar)
         self.menuhelp.setObjectName(u"menuhelp")
+        self.menuedit = QMenu(self.menubar)
+        self.menuedit.setObjectName(u"menuedit")
+        self.menufile = QMenu(self.menubar)
+        self.menufile.setObjectName(u"menufile")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
         MainWindow.setStatusBar(self.statusbar)
 
-        self.menubar.addAction(self.menusave.menuAction())
-        self.menubar.addAction(self.menuopen.menuAction())
-        self.menubar.addAction(self.menuclear.menuAction())
+        self.menubar.addAction(self.menufile.menuAction())
+        self.menubar.addAction(self.menuedit.menuAction())
         self.menubar.addAction(self.menugenerate.menuAction())
-        self.menubar.addAction(self.menuload.menuAction())
         self.menubar.addAction(self.menuoptions.menuAction())
         self.menubar.addAction(self.menuhelp.menuAction())
 
@@ -404,12 +398,10 @@ class Ui_MainWindow(object):
         self.label_11.setText(QCoreApplication.translate("MainWindow", u"Color", None))
         self.label_9.setText(QCoreApplication.translate("MainWindow", u"status:", None))
         self.label_staus.setText("")
-        self.menusave.setTitle(QCoreApplication.translate("MainWindow", u"save", None))
-        self.menuopen.setTitle(QCoreApplication.translate("MainWindow", u"open", None))
-        self.menuclear.setTitle(QCoreApplication.translate("MainWindow", u"clear", None))
         self.menugenerate.setTitle(QCoreApplication.translate("MainWindow", u"generate", None))
-        self.menuload.setTitle(QCoreApplication.translate("MainWindow", u"load", None))
         self.menuoptions.setTitle(QCoreApplication.translate("MainWindow", u"options", None))
         self.menuhelp.setTitle(QCoreApplication.translate("MainWindow", u"help", None))
+        self.menuedit.setTitle(QCoreApplication.translate("MainWindow", u"edit", None))
+        self.menufile.setTitle(QCoreApplication.translate("MainWindow", u"file", None))
     # retranslateUi
 

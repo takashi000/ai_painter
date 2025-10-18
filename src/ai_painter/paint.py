@@ -236,6 +236,8 @@ class PainterWidget(QWidget):
         self.pixmap_pen = QPixmap(512, 512)
         self.pixmap_pen.fill(Qt.GlobalColor.white)
 
+        self.pixmap_history = self.history()
+
         self.previous_pos = None
         self.current_pos = None
 
@@ -473,6 +475,7 @@ class PainterWidget(QWidget):
 
         self.previous_pos = None
         self.current_pos = None
+        self.pixmap_history = self.history(histories=self.pixmap_history, action="push")
         QWidget.mouseReleaseEvent(self, event)
 
     def save(self, filename: str):
@@ -485,6 +488,9 @@ class PainterWidget(QWidget):
         self.pixmap = self.pixmap.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio)
         self.pixmap_org.load(filename)
         self.pixmap_org = self.pixmap.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio)
+        self.pixmap_mask.fill(Qt.GlobalColor.black)
+        self.pixmap_pen.fill(Qt.GlobalColor.white)
+        self.pixmap_history = self.history(self.pixmap_history, action="push")
         self.update()
 
     def load_from_qimage(self, image: QImage):
@@ -493,6 +499,9 @@ class PainterWidget(QWidget):
         self.pixmap = self.pixmap.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio)
         self.pixmap_org = QPixmap.fromImage(image)
         self.pixmap_org = self.pixmap.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio)
+        self.pixmap_mask.fill(Qt.GlobalColor.black)
+        self.pixmap_pen.fill(Qt.GlobalColor.white)
+        self.pixmap_history = self.history(self.pixmap_history, action="push")
         self.update()
 
     def clear(self):
@@ -501,6 +510,19 @@ class PainterWidget(QWidget):
         self.pixmap_org.fill(Qt.GlobalColor.white)
         self.pixmap_mask.fill(Qt.GlobalColor.black)
         self.pixmap_pen.fill(Qt.GlobalColor.white)
+        self.pixmap_history = self.history(self.pixmap_history, action="push")
+        self.update()
+
+    def undo(self):
+        """ Undo the pixmap """
+        self.pixmap_history = self.history(self.pixmap_history, action="undo")
+        (self.pixmap, self.pixmap_mask, self.pixmap_pen) = self.pixmap_history["images"]
+        self.update()
+
+    def redo(self):
+        """ Redo the pixmap """
+        self.pixmap_history = self.history(self.pixmap_history, action="redo")
+        (self.pixmap, self.pixmap_mask, self.pixmap_pen) = self.pixmap_history["images"]
         self.update()
 
     def penbold(self, value:int):
@@ -575,6 +597,89 @@ class PainterWidget(QWidget):
 
         return new_image, new_image_mask, new_image_pen
     
+    def history(self, histories:dict={}, action:str="create", index:int=-1, max:int=10):
+        # action: create, push, pop, undo, redo, delete
+        # index: -1 最新
+        # max: 履歴の最大保持数 最大保持数を超えた場合は一番古い履歴を削除
+        # 戻り値：　push, delte -> list pop -> tuple
+
+        history_image = (None, None, None)
+        history_images = histories
+        
+        if histories:
+            if len(history_images["history"]) > max:
+                elems = history_images["history"][0]
+                history_images["history"] = history_images["history"][1:]
+                for elem in elems:
+                    del elem
+                del elems
+
+        match action:
+            case "create":
+                history_image = (self.pixmap.copy(), self.pixmap_mask.copy(), self.pixmap_pen.copy())
+                history_images =  history_images = {
+                    "history":[history_image],
+                    "images":history_image,
+                    "data": {
+                        "latest": 0,
+                        "current": 0,
+                    },
+                }
+            case "push":
+                history_image = (self.pixmap.copy(), self.pixmap_mask.copy(), self.pixmap_pen.copy())
+                if index >= 0 :
+                    history_images["history"].insert(index, history_image)
+                    for elem in history_images["history"][index + 1:]:
+                        del elem
+                    del history_images["history"][index + 1:]
+                else:
+                    index_current = history_images["data"]["current"]
+                    if index_current < history_images["data"]["latest"]:
+                        history_images["history"].insert(index_current + 1, history_image)
+                        for elem in history_images["history"][index_current + 2:]:
+                            del elem
+                        del history_images["history"][index_current + 2:]
+                    else:
+                        history_images["history"].append(history_image)
+                latest = len(history_images["history"]) - 1
+                history_images["data"]["latest"] = latest
+                history_images["data"]["current"] = latest
+                history_images["images"] = history_images["history"][latest]
+            case "pop":
+                latest = len(history_images["history"]) - 1
+                if -1 <= index and latest >= index:
+                    history_images["data"]["latest"] = latest
+                    history_images["data"]["current"] = index
+                    history_images["images"] = history_images["history"][index]
+            case "undo":
+                index_prev = history_images["data"]["current"] - 1
+                if index_prev >= 0:
+                    (pixmap, pixmap_mask, pixmap_pen) = history_images["history"][index_prev]
+                    history_images["images"] = (pixmap.copy(), pixmap_mask.copy(), pixmap_pen.copy())
+                    history_images["data"]["current"] = index_prev
+            case "redo":
+                index_next = history_images["data"]["current"] + 1
+                latest = history_images["data"]["latest"]
+                if index_next <= latest:
+                    (pixmap, pixmap_mask, pixmap_pen) = history_images["history"][index_next]
+                    history_images["images"] = (pixmap.copy(), pixmap_mask.copy(), pixmap_pen.copy())
+                    history_images["data"]["current"] = index_next
+            case "delete":
+                latest = len(history_images["history"]) - 1
+                if -1 <= index and latest >= index:
+                    for elem in history_images["history"][index]:
+                        del elem
+                    del history_images["history"][index]
+                current = history_images["data"]["current"]
+                if current > latest:
+                    history_images["data"]["current"] = latest - 1
+                history_images["images"] = history_images["history"][latest - 1]
+            case _:
+                pass
+        
+        print("Dict:",history_images)
+        return history_images
+
 class DialogModels(QDialog):
     def __init__(self, parent=None):
         super(DialogModels, self).__init__(parent)
@@ -847,11 +952,9 @@ class MainWindow(QMainWindow):
         self.systemconf = self.system()
 
         self.menubar: QMenuBar = self.findChild(QMenuBar, "menubar")
-        self.menuopen: QMenu = self.findChild(QMenu, "menuopen")
-        self.menusave: QMenu = self.findChild(QMenu, "menusave")
-        self.menuclear: QMenu = self.findChild(QMenu, "menuclear")
+        self.menufile: QMenu = self.findChild(QMenu, "menufile")
+        self.menuedit: QMenu = self.findChild(QMenu, "menuedit")
         self.menugenerate: QMenu = self.findChild(QMenu, "menugenerate")
-        self.menuload: QMenu = self.findChild(QMenu, "menuload")
         self.menuoptions: QMenu = self.findChild(QMenu, "menuoptions")
         self.menuhelp: QMenu = self.findChild(QMenu, "menuhelp")
         self.horizontal_layout: QHBoxLayout = self.findChild(QHBoxLayout, "horizontalLayout")
@@ -903,30 +1006,35 @@ class MainWindow(QMainWindow):
         self.base_image:Image = self.qimage_to_pil(self.view_widget.qimage)
         self.mask_image:Image = None
         
-        
-        self._save_action = self.menusave.addAction(
-            qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),  # noqa: F821
-            "Save", self.on_save
-        )
-        self._save_action.setShortcut(QKeySequence.StandardKey.Save)
-        self._save_action = self.menusave.addAction(
-            qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),  # noqa: F821
-            "Save Generated File", self.on_save_generated
-        )
-        self._open_action = self.menuopen.addAction(
+        self.menufile.addAction(
             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),  # noqa: F821
             "Open", self.on_open
         )
-        self._open_action.setShortcut(QKeySequence.StandardKey.Open)
-        self.menuclear.addAction(
-            qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton),  # noqa: F821
-            "Clear",
-            self.painter_widget.clear,
+        self.menufile.addAction(
+             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),  # noqa: F821
+            "Save", self.on_save
         )
-        self.menuload.addAction(
+        self.menufile.addAction(
+            qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),  # noqa: F821
+            "Save Generated File", self.on_save_generated
+        )
+        self.menuedit.addAction(
             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),  # noqa: F821
             "Load from generated image",
             self.on_load_from_generated_image,
+        )
+        self.menuedit.addAction(
+             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton),  # noqa: F821
+             "Undo", self.painter_widget.undo,
+        )
+        self.menuedit.addAction(
+             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton),  # noqa: F821
+             "Redo", self.painter_widget.redo,
+        )
+        self.menuedit.addAction(
+            qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton),  # noqa: F821
+            "Clear",
+            self.painter_widget.clear,
         )
         self.menugenerate.addAction(
             qApp.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload),  # noqa: F821

@@ -5,6 +5,7 @@ Diffusionモデルを使用したお絵かきツールです。
 ## アップデート
 
 2025/10/15：初回リリース(Stable Diffusion 1.5のみ対応)
+2025/10/19：0.0.2リリース(メニューバー整理、undo, redo機能追加)
 
 ## インストール
 
@@ -17,8 +18,7 @@ git clone https://github.com/takashi000/ai_painter.git
 ```
 
 ```sh
-cd ai_painter
-uv pip install .
+uv pip install ai_painter
 ```
 
 ## 動作確認環境
