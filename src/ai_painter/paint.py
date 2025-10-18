@@ -676,8 +676,7 @@ class PainterWidget(QWidget):
                 history_images["images"] = history_images["history"][latest - 1]
             case _:
                 pass
-        
-        print("Dict:",history_images)
+            
         return history_images
 
 class DialogModels(QDialog):
