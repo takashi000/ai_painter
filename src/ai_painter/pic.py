@@ -1,16 +1,18 @@
 from diffusers import StableDiffusionPipeline, StableDiffusionControlNetInpaintPipeline, DPMSolverMultistepScheduler, UniPCMultistepScheduler, DDIMScheduler, StableDiffusionControlNetPipeline, ControlNetModel
 from diffusers.utils import load_image
 from diffusers.models import AutoencoderKL
-from diffusers.callbacks import SDCFGCutoffCallback
+from diffusers.callbacks import PipelineCallback, SDCFGCutoffCallback
 from sd_embed.embedding_funcs import get_weighted_text_embeddings_sd15
 from transformers import pipeline, AutoImageProcessor, UperNetForSemanticSegmentation
 from mmpose.apis import MMPoseInferencer
+from typing import Any, Dict
 import cv2
 from PIL import Image
 import numpy as np
 import torch
 from torch.nn.attention import SDPBackend, sdpa_kernel
 from accelerate.utils import compile_regions
+import gc
 
 torch.set_float32_matmul_precision('high')
 
@@ -168,6 +170,67 @@ ada_palette = np.asarray([
       [92, 0, 255],
   ])
 
+class SDCFGCutoffCallbackTrace(PipelineCallback):
+    def __init__(self, cutoff_step_ratio: float = 1, cutoff_step_index: Any | None = None):
+        super().__init__(cutoff_step_ratio=cutoff_step_ratio, cutoff_step_index=cutoff_step_index)
+        self.images = None
+        self.generator = None
+        self.callback_func = None
+    """
+    Callback function for Stable Diffusion Pipelines. After certain number of steps (set by `cutoff_step_ratio` or
+    `cutoff_step_index`), this callback will disable the CFG.
+
+    Note: This callback mutates the pipeline by changing the `_guidance_scale` attribute to 0.0 after the cutoff step.
+    """
+    tensor_inputs = ["prompt_embeds", "latents"]
+
+    def callback_fn(self, pipeline, step_index, timestep, callback_kwargs) -> Dict[str, Any]:
+        latents = callback_kwargs[self.tensor_inputs[1]]
+        
+        image, latent = self.decode_latents(latents=latents, pipeline=pipeline)
+
+        if self.images:
+            del self.images
+            self.images = None
+
+        self.images = (image, latent)
+        
+        if self.callback_func:
+            self.callback_func((image, latent))
+
+        return self.callback_cutoff(pipeline, step_index, timestep, callback_kwargs)
+    
+    def callback_cutoff(self, pipeline, step_index, timestep, callback_kwargs) -> Dict[str, Any]:
+        cutoff_step_ratio = self.config.cutoff_step_ratio
+        cutoff_step_index = self.config.cutoff_step_index
+
+        # Use cutoff_step_index if it's not None, otherwise use cutoff_step_ratio
+        cutoff_step = (
+            cutoff_step_index if cutoff_step_index is not None else int(pipeline.num_timesteps * cutoff_step_ratio)
+        )
+
+        if step_index == cutoff_step:
+            prompt_embeds = callback_kwargs[self.tensor_inputs[0]]
+            prompt_embeds = prompt_embeds[-1:]  # "-1" denotes the embeddings for conditional text tokens.
+
+            pipeline._guidance_scale = 0.0
+
+            callback_kwargs[self.tensor_inputs[0]] = prompt_embeds
+        return callback_kwargs
+    
+    def decode_latents(self, pipeline, latents):
+        latent = pipeline.image_processor.postprocess(latents, output_type="pil", do_denormalize=[True] * latents.shape[0])[0]
+        image_vae = pipeline.vae.decode(latents / pipeline.vae.config.scaling_factor, return_dict=False, generator=self.generator)
+        image = pipeline.image_processor.postprocess(image_vae[0], output_type="pil", do_denormalize=[True] * image_vae[0].shape[0])[0]
+        
+        del image_vae
+
+        return image, latent
+    
+    def load_decoder(self, generator, callback_func):
+        self.images = None
+        self.generator = generator
+        self.callback_func = callback_func
 
 class DiffusersGenerate:
     def __init__(
@@ -192,7 +255,10 @@ class DiffusersGenerate:
         self.max_memory_mapping = {0: "8GB"}
         self.dtype = torch.bfloat16
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu') # or cpu
-        self.callback = SDCFGCutoffCallback(cutoff_step_ratio=None, cutoff_step_index=10)
+        self.callbacks = [
+            SDCFGCutoffCallback(cutoff_step_ratio=None, cutoff_step_index=10),
+            SDCFGCutoffCallbackTrace(cutoff_step_ratio=None, cutoff_step_index=10)
+        ]
         
         self.vae_load, self.pipeline = self.load_model(
             self.model, 
@@ -213,7 +279,6 @@ class DiffusersGenerate:
         )
 
     def load_model(self, model, vae, lora, loradir, lora_name, lora_weight):
-
         vae_load, pipeline = (None, None)
         with torch.device(self.device):
             try:
@@ -231,7 +296,7 @@ class DiffusersGenerate:
                     pipeline.load_lora_weights(loradir, weight_name=lora, adapter_name=lora_name)
                     pipeline.set_adapters(lora_name, adapter_weights=lora_weight)
                 
-                pipeline.enable_model_cpu_offload()
+                pipeline.enable_model_cpu_offload(device=self.device)
                 pipeline.unet = compile_regions(pipeline.unet, mode="reduce-overhead", fullgraph=True)
             except:
                 pass
@@ -287,6 +352,7 @@ class DiffusersGenerate:
         (self.model, self.vae, self.lora, self.loradir, self.lora_name, self.lora_weight) = (
             model, vae, lora, loradir, lora_name, lora_weight
         )
+        del self.vae_load, self.pipeline
         self.vae_load, self.pipeline =  self.load_model(
             self.model, 
             self.vae, 
@@ -300,6 +366,7 @@ class DiffusersGenerate:
     def reload_controlnet_model(self, model_cnet, cnet_type):
         
         self.model_cnet = model_cnet
+        del self.controlnet, self.controlnet_pipeline
         self.controlnet, self.controlnet_pipeline = self.load_controlnet_model(
             model=self.model, 
             model_cnet=self.model_cnet,
@@ -312,7 +379,8 @@ class DiffusersGenerate:
         )
         torch.cuda.empty_cache()
 
-    def generate_image(self, prompt="", neg_prompt="", width=512, height=512, steps=20, guidance=7.5, seed=0):
+    def generate_image(self, prompt="", neg_prompt="", width=512, height=512, steps=20, guidance=7.5, seed=0, 
+                       step_visualize=False, callback_func=None):
         (image, seed_num) = (None, 0)
         
         try:
@@ -321,8 +389,17 @@ class DiffusersGenerate:
                     (positive_embeds, negative_embeds) = get_weighted_text_embeddings_sd15(self.pipeline, prompt=prompt, neg_prompt=neg_prompt)
                     seed_num = seed if seed >= 0 else torch.randint(0, 65535, (1,)).item()
                     generator = torch.Generator(self.device).manual_seed(seed_num)
+                    
+                    if step_visualize:
+                        callback_on_step_end = self.callbacks[1]
+                        callback_on_step_end.load_decoder(generator=generator, callback_func=callback_func)
+                        output_type="latent"
+                    else:
+                        callback_on_step_end = self.callbacks[0]
+                        output_type="pil"
+                    
                     with torch.no_grad():
-                        image = self.pipeline(
+                        output = self.pipeline(
                             generator=generator,
                             prompt_embeds=positive_embeds,
                             negative_prompt_embeds=negative_embeds,
@@ -330,13 +407,18 @@ class DiffusersGenerate:
                             guidance_scale=guidance,
                             width=width,
                             height=height,
-                            callback_on_step_end=self.callback,
-                        ).images[0]
-        except:
+                            output_type=output_type,
+                            callback_on_step_end=callback_on_step_end,
+                        )
+                    image = callback_on_step_end.images[0] if step_visualize else output.images[0].copy()
+        except Exception as e:
+            print(e)
             # エラーの時は黒の画像
             image = Image.new("RGB", (width, height), (0, 0, 0))
             pass
         
+        del positive_embeds, negative_embeds, output
+        gc.collect()
         torch.cuda.empty_cache()
 
         return image, seed_num
@@ -809,10 +891,10 @@ class DiffusersGenerate:
             # エラーの時は黒の画像
             image = Image.new("RGB", (width, height), (0, 0, 0))
             pass
-            
+
+        del positive_embeds, negative_embeds
+        gc.collect()
         torch.cuda.empty_cache()
 
         return image, seed_num
 
-
-#if __name__ == "__main__":

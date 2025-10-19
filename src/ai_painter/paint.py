@@ -63,7 +63,6 @@ from .ui_about import Ui_DialogAbout
 from .pic import DiffusersGenerate
 from .paintsystem import PaintSystem
 
-
 class ImageGen(QThread):
     run_finished = Signal()
     def __init__(self, win):
@@ -86,6 +85,49 @@ class ImageGen(QThread):
         self.win.spinBoxSeed.setValue(seed_ret)
         self.win.generated_image = self.win.pilimage_to_qimage(image)
         self.run_finished.emit()
+
+class ImageStepGen(QThread):
+    run_finished = Signal()
+    update_image_signal = Signal(tuple)  # 画像更新のための signal
+    def __init__(self, win):
+       super(ImageStepGen, self).__init__()
+       self.win = win
+    def run(self):
+
+        # テンソル断片化のためモデルを再リロード
+        checkpoint = self.win.cnet_checkpoint
+        self.win.imagegen.reload_model(
+            model=self.win.system.systemconf["Checkpoint"]["checkpoint"],
+            lora=self.win.system.systemconf["Checkpoint"]["lora"]["file"],
+            loradir=self.win.system.systemconf["Checkpoint"]["lora"]["lora_dir"],
+            lora_name=self.win.system.systemconf["Checkpoint"]["lora"]["lora_name"],
+            lora_weight=self.win.system.systemconf["Checkpoint"]["lora"]["lora_weight"],
+            vae=self.win.system.systemconf["Checkpoint"]["vae"],
+        )
+        self.win.imagegen.reload_controlnet_model(checkpoint[0], checkpoint[1])
+
+        positive_prompt = self.win.posEdit.toPlainText()
+        negative_prompt = self.win.negEdit.toPlainText()
+        guidance_scale = self.win.dspinBoxGuidance.value()
+        check_seed = self.win.checkBoxSeed.isChecked()
+        steps = self.win.spinBoxStep.value()
+        seed = self.win.spinBoxSeed.value() if check_seed else -1
+        image, seed_ret = self.win.imagegen.generate_image(
+            prompt=positive_prompt, 
+            neg_prompt=negative_prompt,
+            guidance=guidance_scale,
+            steps=steps,
+            seed=seed,
+            step_visualize=True,
+            callback_func=self.image_callback
+        )
+        self.win.spinBoxSeed.setValue(seed_ret)
+        self.win.generated_image = self.win.pilimage_to_qimage(image)
+        self.run_finished.emit()
+    
+    def image_callback(self, step_image:tuple=None):
+        # シグナルを使ってメインスレッドに画像を渡す
+        self.update_image_signal.emit(step_image)
 
 class ImageGenControlNet(QThread):
     run_finished = Signal()
@@ -206,6 +248,9 @@ class ViewWidget(QGraphicsView):
         self.setScene(self.scene)
 
     def set_image(self, image: QImage):
+        # シーンの内容をクリア
+        self.scene.clear()
+
         if image.isNull():
             self.pixmap = QPixmap(512, 512)
         else:
@@ -216,10 +261,36 @@ class ViewWidget(QGraphicsView):
         self.pixmap_item = QGraphicsPixmapItem(self.pixmap)
         self.scene.addItem(self.pixmap_item)
         self.setScene(self.scene)
-        
+
+    def set_stepimage(self, image:tuple=()):
+        # シーンの内容をクリア
+        self.scene.clear()
+
+        # imageは(image:Image, latent:Image)を想定
+        qimage = None
+        if not image:
+            qimage = QImage(512, 512).fill(0)
+        else:
+            qimage = self.pilimage_to_qimage(image[0])
+
+        self.qimage = qimage
+        self.pixmap = QPixmap.fromImage(qimage)
+
+        self.pixmap_item = QGraphicsPixmapItem(self.pixmap)
+        self.scene.addItem(self.pixmap_item)
+        self.setScene(self.scene)
+
     def save(self, filename: str):
         """ save pixmap to filename """
         self.pixmap.save(filename)
+    
+    def pilimage_to_qimage(self, pimg):
+        buffer = QBuffer()
+        buffer.open(QIODevice.WriteOnly)
+        pimg.save(buffer, "BMP")
+        qimg = QImage()
+        qimg.loadFromData(buffer.data().data(), "BMP")
+        return qimg
 
 class PainterWidget(QWidget):
     def __init__(self, parent=None):
@@ -539,7 +610,7 @@ class PainterWidget(QWidget):
         self.draw_mode = mode if mode in self.draw_modes else "free"
         self.update()
 
-    def flood_fill(self, pixmap:QPixmap, pixmap_mask:QPixmap, pixmap_pen:QPixmap, start_point:QPoint, new_color:QColor, mode:str="draw") -> (QPixmap, QPixmap, QPixmap):
+    def flood_fill(self, pixmap:QPixmap, pixmap_mask:QPixmap, pixmap_pen:QPixmap, start_point:QPoint, new_color:QColor, mode:str="draw"):
         # drawモードのときはペンで描画した範囲を塗りつぶす
         # baseモードのときは読み込んだ画像の範囲を塗りつぶす
         # QPixmapをNumPy配列に変換
@@ -676,7 +747,7 @@ class PainterWidget(QWidget):
                 history_images["images"] = history_images["history"][latest - 1]
             case _:
                 pass
-            
+
         return history_images
 
 class DialogModels(QDialog):
@@ -1040,6 +1111,11 @@ class MainWindow(QMainWindow):
             "Generate Image",
             self.on_generate_image,
         )
+        self.menugenerate.addAction(
+             qApp.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload),  # noqa: F821
+            "Generate Step Image",
+            self.on_generate_stepimage,
+        )
         self.menuoptions.addAction(
             qApp.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),  # noqa: F821
             "Models",
@@ -1129,6 +1205,9 @@ class MainWindow(QMainWindow):
         self.loading = False
         self.imagegen_run = ImageGen(self)
         self.imagegen_run.run_finished.connect(self.generate_complete)
+        self.imagestepgen_run = ImageStepGen(self)
+        self.imagestepgen_run.run_finished.connect(self.generate_complete)
+        self.imagestepgen_run.update_image_signal.connect(self.view_widget.set_stepimage)
         self.imagegen_controlnet_run = ImageGenControlNet(self)
         self.imagegen_controlnet_run.run_finished.connect(self.generate_complete)
 
@@ -1215,6 +1294,20 @@ class MainWindow(QMainWindow):
                 self.imagegen_controlnet_run.start()
             else:
                 self.imagegen_run.start()
+        self.labelstatus.setText("Generating Image...")
+    
+    def on_generate_stepimage(self):
+        if self.running != True and self.loading != True:
+            self.running = True
+            if self.checkControlNet.isChecked():
+                if self.cnet_checkpoint[1] == "inpaint":
+                    self.base_image = self.qimage_to_pil(self.painter_widget.pixmap_org.toImage())
+                    self.mask_image = self.qimage_to_pil(self.painter_widget.pixmap_mask.toImage())
+                else:
+                    self.base_image = self.qimage_to_pil(self.painter_widget.pixmap.toImage())
+                self.imagegen_controlnet_run.start()
+            else:
+                self.imagestepgen_run.start()
         self.labelstatus.setText("Generating Image...")
 
     def generate_complete(self):

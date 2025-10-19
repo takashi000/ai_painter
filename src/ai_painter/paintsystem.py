@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-version = "0.0.2"
+version = "0.0.3"
 
 class PaintSystem:
     def __init__(self):
