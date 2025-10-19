@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-version = "0.0.3"
+version = "0.0.4"
 
 class PaintSystem:
     def __init__(self):
@@ -34,7 +34,7 @@ class PaintSystem:
             "System": Path.home().joinpath(self.appname, self.filename["System"]),
         }
         self.system = {
-            "Version": version,
+            "Version": self.get_version(),
             "Checkpoint": {
                 "checkpoint":"",
                 "vae":"",
@@ -148,6 +148,9 @@ class PaintSystem:
                     self.systemconf = self.system.copy()
                     self.save_systemconf()           
         return data
+    
+    def get_version(self) -> str:
+        return version
     
     def __call__(self):
         data = self.load_systemconf()    

@@ -15,8 +15,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QDialog, QPushButton, QSizePolicy,
-    QTextBrowser, QWidget)
+from PySide6.QtWidgets import (QApplication, QDialog, QLabel, QPushButton,
+    QSizePolicy, QTextBrowser, QWidget)
 
 class Ui_DialogAbout(object):
     def setupUi(self, DialogAbout):
@@ -32,6 +32,9 @@ class Ui_DialogAbout(object):
         self.pushButton_aboutok = QPushButton(DialogAbout)
         self.pushButton_aboutok.setObjectName(u"pushButton_aboutok")
         self.pushButton_aboutok.setGeometry(QRect(450, 400, 79, 24))
+        self.label_version = QLabel(DialogAbout)
+        self.label_version.setObjectName(u"label_version")
+        self.label_version.setGeometry(QRect(80, 60, 49, 16))
 
         self.retranslateUi(DialogAbout)
 
@@ -50,7 +53,7 @@ class Ui_DialogAbout(object):
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u30bd\u30d5\u30c8\u30a6\u30a7\u30a2\u540d\uff1aAI Painter</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u6982\u8981\uff1aDiffusion\u30e2\u30c7\u30eb\u306b\u3088\u308b\u753b\u50cf\u751f\u6210\u3092\u4f7f\u7528\u3057\u305f\u304a\u7d75\u63cf\u304d"
                         "\u30c4\u30fc\u30eb\u3067\u3059\u3002</span></p>\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u30d0\u30fc\u30b8\u30e7\u30f3: 0.0.3</span></p>\n"
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u30d0\u30fc\u30b8\u30e7\u30f3: </span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">\u4f5c\u6210\u8005\u30fb\u8457\u4f5c\u8005: Tanaka Takashi</span></p>\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:11pt;\">Copyright(C) 2025 Tanaka Takashi</span></p></body></html>", None))
         self.textBrowser_2.setHtml(QCoreApplication.translate("DialogAbout", u"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
@@ -265,5 +268,6 @@ class Ui_DialogAbout(object):
                         "rams. If your program is a subroutine library, you may consider it more useful to permit linking proprietary applications with the library. If this is what you want to do, use the GNU Lesser General Public License instead of this License. But first, please read &lt;<a href=\"https://www.gnu.org/licenses/why-not-lgpl.html\"><span style=\" text-decoration: underline; color:#003e92;\">https://www.gnu.org/licenses/why-not-lgpl.html</span></a>&gt;. </p>\n"
 "<hr /></body></html>", None))
         self.pushButton_aboutok.setText(QCoreApplication.translate("DialogAbout", u"OK", None))
+        self.label_version.setText("")
     # retranslateUi
 
